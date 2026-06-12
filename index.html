@@ -584,6 +584,12 @@
                     return TAB_LEFT + (fret - pos.minFret + 0.5) * fretWidth
                 }
 
+                function fretWireX(fret, pos) {
+                    const numFrets = pos.maxFret - pos.minFret + 1
+                    const fretWidth = (TAB_RIGHT - TAB_LEFT) / numFrets
+                    return TAB_LEFT + (fret - pos.minFret) * fretWidth + 12
+                }
+
                 function renderTabBoard() {
                     clearSvg()
                     svg.setAttribute('viewBox', '0 0 1000 380')
@@ -696,7 +702,7 @@
                     c.seqNotes.forEach(({ note, placement }, i) => {
                         const answered = i < c.seqPos
                         const current = i === c.seqPos
-                        const x = fretCenterX(placement.fret, pos)
+                        const x = fretWireX(placement.fret, pos)
                         const y = TAB_STR_Y[placement.stringNum - 1]
                         const fStr = String(placement.fret)
                         const bw = fStr.length === 1 ? 32 : 44
