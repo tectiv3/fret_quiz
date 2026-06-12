@@ -1,0 +1,1047 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Fret Quiz</title>
+        <style>
+            :root,
+            [data-theme="light"] {
+                --bg: #ffffff;
+                --text: #111111;
+                --border: #ddd;
+                --card-bg: #ffffff;
+                --btn-bg: #f7f7f7;
+                --btn-hover: #f0f0f0;
+                --btn-border: #ccc;
+                --hint: #666;
+                --good: #0a7a2f;
+                --bad: #b32020;
+                --active-bg: #d0e8ff;
+                --active-border: #4a90d9;
+                --svg-text: #333;
+                --svg-line: #444;
+                --svg-nut: #222;
+                --fret-bg: #ffffff;
+                --fret-border: currentColor;
+                --dot-color: #999;
+                --th-bg: #ffffff;
+                --td-border: #eee;
+            }
+            [data-theme="dark"] {
+                --bg: #1a1a1a;
+                --text: #e0e0e0;
+                --border: #333;
+                --card-bg: #242424;
+                --btn-bg: #2a2a2a;
+                --btn-hover: #353535;
+                --btn-border: #444;
+                --hint: #888;
+                --good: #4ade80;
+                --bad: #f87171;
+                --active-bg: #1e3a5f;
+                --active-border: #4a90d9;
+                --svg-text: #bbb;
+                --svg-line: #666;
+                --svg-nut: #ccc;
+                --fret-bg: #1a1a1a;
+                --fret-border: currentColor;
+                --dot-color: #555;
+                --th-bg: #242424;
+                --td-border: #333;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root:not([data-theme="light"]):not([data-theme="dark"]),
+                [data-theme="system"] {
+                    --bg: #1a1a1a;
+                    --text: #e0e0e0;
+                    --border: #333;
+                    --card-bg: #242424;
+                    --btn-bg: #2a2a2a;
+                    --btn-hover: #353535;
+                    --btn-border: #444;
+                    --hint: #888;
+                    --good: #4ade80;
+                    --bad: #f87171;
+                    --active-bg: #1e3a5f;
+                    --active-border: #4a90d9;
+                    --svg-text: #bbb;
+                    --svg-line: #666;
+                    --svg-nut: #ccc;
+                    --fret-bg: #1a1a1a;
+                    --fret-border: currentColor;
+                    --dot-color: #555;
+                    --th-bg: #242424;
+                    --td-border: #333;
+                }
+            }
+            body {
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    Segoe UI,
+                    Roboto,
+                    sans-serif;
+                margin: 14px;
+                background: var(--bg);
+                color: var(--text);
+                transition: background-color 0.2s, color 0.2s;
+            }
+            .row {
+                display: flex;
+                gap: 10px;
+                align-items: flex-start;
+                flex-wrap: wrap;
+            }
+            .card {
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                padding: 12px 14px;
+                background: var(--card-bg);
+            }
+            .big {
+                font-size: 18px;
+            }
+            button {
+                padding: 8px 10px;
+                border-radius: 8px;
+                border: 1px solid var(--btn-border);
+                background: var(--btn-bg);
+                color: var(--text);
+                cursor: pointer;
+                font-size: 14px;
+            }
+            button:hover:not(:disabled) {
+                background: var(--btn-hover);
+            }
+            button:disabled {
+                cursor: default;
+                opacity: 0.75;
+            }
+            .hint {
+                color: var(--hint);
+                font-size: 13px;
+            }
+            .good {
+                color: var(--good);
+                font-weight: 600;
+            }
+            .bad {
+                color: var(--bad);
+                font-weight: 600;
+            }
+            .mono {
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            }
+            #boardWrap {
+                width: min(980px, 98vw);
+            }
+            #board {
+                width: 100%;
+                height: auto;
+                display: block;
+            }
+            #history {
+                max-height: 360px;
+                overflow: auto;
+            }
+            table {
+                border-collapse: collapse;
+                width: 100%;
+            }
+            th,
+            td {
+                border-bottom: 1px solid var(--td-border);
+                padding: 6px 8px;
+                text-align: left;
+                font-size: 13px;
+            }
+            th {
+                position: sticky;
+                top: 0;
+                background: var(--th-bg);
+            }
+            .selected-btn {
+                background: var(--active-bg);
+                border-color: var(--active-border);
+            }
+            #themeToggle {
+                width: 36px;
+                height: 36px;
+                padding: 0;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+                line-height: 1;
+                transition: background-color 0.2s;
+            }
+        </style>
+        <script>
+            ;(function () {
+                var KEY = 'fret-quiz-theme'
+                var CYCLE = ['system', 'dark', 'light']
+                var ICONS = { light: '☀️', dark: '🌙', system: '◐' }
+
+                function getStored() {
+                    try {
+                        var v = localStorage.getItem(KEY)
+                        if (CYCLE.indexOf(v) !== -1) return v
+                    } catch (_) {}
+                    return 'system'
+                }
+
+                function apply(mode) {
+                    document.documentElement.setAttribute('data-theme', mode)
+                    var btn = document.getElementById('themeToggle')
+                    if (btn) {
+                        btn.textContent = ICONS[mode]
+                        btn.setAttribute('aria-label', mode + ' theme')
+                    }
+                }
+
+                function toggle() {
+                    var current = getStored()
+                    var next = CYCLE[(CYCLE.indexOf(current) + 1) % CYCLE.length]
+                    try { localStorage.setItem(KEY, next) } catch (_) {}
+                    apply(next)
+                }
+
+                apply(getStored())
+
+                document.addEventListener('DOMContentLoaded', function () {
+                    var btn = document.getElementById('themeToggle')
+                    if (btn) btn.addEventListener('click', toggle)
+                    apply(getStored())
+                })
+            })()
+        </script>
+    </head>
+    <body>
+        <!-- HEADER -->
+        <div
+            style="
+                margin-bottom: 10px;
+                display: flex;
+                gap: 6px;
+                align-items: center;
+                flex-wrap: wrap;
+            "
+        >
+            <h2 style="margin: 0">Fret Quiz</h2>
+            <strong class="hint" style="margin-left: 4px">Position:</strong>
+            <button class="tabpos-btn selected-btn" data-pos="0">Open</button>
+            <button class="tabpos-btn" data-pos="1">3-6</button>
+            <button class="tabpos-btn" data-pos="2">6-10</button>
+            <button class="tabpos-btn" data-pos="3">10-14</button>
+            <button class="tabpos-btn" data-pos="4">12-17</button>
+            <div style="margin-left: auto">
+                <button id="themeToggle" aria-label="Toggle theme"></button>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- MAIN QUIZ CARD -->
+            <div class="card" id="mainArea" style="flex: 2; min-width: 280px">
+                <div id="boardWrap">
+                    <svg
+                        id="board"
+                        viewBox="0 0 1000 350"
+                        xmlns="http://www.w3.org/2000/svg"
+                        aria-label="Bass fretboard"
+                    ></svg>
+                </div>
+
+                <!-- Note buttons A-G -->
+                <div
+                    id="noteBtns"
+                    style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap"
+                >
+                    <button
+                        class="note-btn"
+                        data-note="A"
+                        style="
+                            font-size: 20px;
+                            font-weight: 600;
+                            min-width: 44px;
+                            min-height: 44px;
+                        "
+                    >
+                        A
+                    </button>
+                    <button
+                        class="note-btn"
+                        data-note="B"
+                        style="
+                            font-size: 20px;
+                            font-weight: 600;
+                            min-width: 44px;
+                            min-height: 44px;
+                        "
+                    >
+                        B
+                    </button>
+                    <button
+                        class="note-btn"
+                        data-note="C"
+                        style="
+                            font-size: 20px;
+                            font-weight: 600;
+                            min-width: 44px;
+                            min-height: 44px;
+                        "
+                    >
+                        C
+                    </button>
+                    <button
+                        class="note-btn"
+                        data-note="D"
+                        style="
+                            font-size: 20px;
+                            font-weight: 600;
+                            min-width: 44px;
+                            min-height: 44px;
+                        "
+                    >
+                        D
+                    </button>
+                    <button
+                        class="note-btn"
+                        data-note="E"
+                        style="
+                            font-size: 20px;
+                            font-weight: 600;
+                            min-width: 44px;
+                            min-height: 44px;
+                        "
+                    >
+                        E
+                    </button>
+                    <button
+                        class="note-btn"
+                        data-note="F"
+                        style="
+                            font-size: 20px;
+                            font-weight: 600;
+                            min-width: 44px;
+                            min-height: 44px;
+                        "
+                    >
+                        F
+                    </button>
+                    <button
+                        class="note-btn"
+                        data-note="G"
+                        style="
+                            font-size: 20px;
+                            font-weight: 600;
+                            min-width: 44px;
+                            min-height: 44px;
+                        "
+                    >
+                        G
+                    </button>
+                </div>
+
+                <!-- Answer + feedback row -->
+                <div
+                    style="
+                        display: flex;
+                        margin-top: 8px;
+                        align-items: center;
+                        flex-wrap: wrap;
+                        gap: 8px;
+                    "
+                >
+                    <div class="big" id="answerRow">
+                        Answer: <span id="typed" class="mono">_</span>
+                    </div>
+                    <div id="feedback" class="big" aria-live="polite"></div>
+                    <div
+                        style="
+                            margin-left: auto;
+                            display: flex;
+                            gap: 16px;
+                            align-items: center;
+                        "
+                        class="hint"
+                    >
+                        <span
+                            ><label
+                                >Seq:
+                                <select
+                                    id="seqLen"
+                                    style="
+                                        padding: 2px 4px;
+                                        font-size: 13px;
+                                        border-radius: 4px;
+                                        border: 1px solid var(--btn-border);
+                                        background: var(--btn-bg);
+                                        color: var(--text);
+                                    "
+                                >
+                                    <option value="1" selected>1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                </select></label
+                            ></span
+                        >
+                        <span>Tries: <span id="tries" class="mono">0</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STATS + HISTORY CARD -->
+            <div class="card" style="min-width: 250px; flex: 1">
+                <div class="row" style="align-items: center">
+                    <div class="big">Stats</div>
+                    <button id="resetBtn">Reset</button>
+                </div>
+                <div style="margin-top: 8px">
+                    <div>Completed: <span id="done" class="mono">0</span></div>
+                    <div>First try: <span id="firstTryEl" class="mono">0</span></div>
+                    <div>Pass rate: <span id="rate" class="mono">0%</span></div>
+                </div>
+                <div class="big" style="margin-top: 14px">History</div>
+                <div id="history" style="margin-top: 6px">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Question</th>
+                                <th>Tries</th>
+                            </tr>
+                        </thead>
+                        <tbody id="histBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            ;(() => {
+                // =====================================================================
+                // STATE
+                // =====================================================================
+                let done = 0,
+                    firstTryCount = 0
+                let historyLog = []
+                let waitingForNext = false
+                let tabCurrent = null
+                let tabPositionIdx = 0
+
+                const STORAGE_KEY = 'fret-quiz-stats'
+
+                // =====================================================================
+                // BASS TUNING & POSITIONS
+                // =====================================================================
+                const BASS_STRINGS = [
+                    { stringNum: 1, letter: 'G', octave: 2, openMidi: 43 },
+                    { stringNum: 2, letter: 'D', octave: 2, openMidi: 38 },
+                    { stringNum: 3, letter: 'A', octave: 1, openMidi: 33 },
+                    { stringNum: 4, letter: 'E', octave: 1, openMidi: 28 },
+                ]
+
+                const TAB_POSITIONS = [
+                    { label: 'Open', minFret: 0, maxFret: 4 },
+                    { label: '3–6', minFret: 3, maxFret: 6 },
+                    { label: '6–10', minFret: 6, maxFret: 10 },
+                    { label: '10–14', minFret: 10, maxFret: 14 },
+                    { label: '12–17', minFret: 12, maxFret: 17 },
+                ]
+
+                const TAB_STR_Y = [100, 170, 240, 310]
+                const TAB_LEFT = 90,
+                    TAB_RIGHT = 950
+
+                const DOT_FRETS_SINGLE = [3, 5, 7, 9]
+                const DOT_FRET_DOUBLE = 12
+
+                // =====================================================================
+                // MUSIC THEORY
+                // =====================================================================
+                const LETTERS = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+                const letterToStep = new Map(LETTERS.map((L, i) => [L, i]))
+                function diatonicIndex(letter, octave) {
+                    return octave * 7 + letterToStep.get(letter)
+                }
+                function noteFromIndex(idx) {
+                    return { letter: LETTERS[idx % 7], octave: Math.floor(idx / 7) }
+                }
+                function noteName(n) {
+                    return n.letter + n.octave
+                }
+
+                const SEMI = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }
+                const SEMI_INV = new Map(Object.entries(SEMI).map(([l, s]) => [s, l]))
+
+                function midiToFreq(midi) {
+                    return 440 * Math.pow(2, (midi - 69) / 12)
+                }
+                function randomInt(lo, hi) {
+                    return lo + Math.floor(Math.random() * (hi - lo + 1))
+                }
+
+                // =====================================================================
+                // AUDIO
+                // =====================================================================
+                class Synth {
+                    constructor() {
+                        this.ctx = null
+                        this.master = null
+                        this.seqGain = null
+                        this.vol = 0.25
+                    }
+                    ensure() {
+                        if (!this.ctx) {
+                            const ctx = new (window.AudioContext ||
+                                window.webkitAudioContext)()
+                            const m = ctx.createGain()
+                            m.gain.value = this.vol
+                            m.connect(ctx.destination)
+                            this.ctx = ctx
+                            this.master = m
+                        }
+                    }
+                    get now() {
+                        this.ensure()
+                        return this.ctx.currentTime
+                    }
+                    newSeqGain() {
+                        if (this.seqGain) {
+                            try {
+                                this.seqGain.disconnect()
+                            } catch (e) {}
+                        }
+                        this.seqGain = this.ctx.createGain()
+                        this.seqGain.connect(this.master)
+                        return this.seqGain
+                    }
+                    playNote(freq, start, dur, sustain, sink) {
+                        this.ensure()
+                        const ctx = this.ctx
+                        const osc = ctx.createOscillator()
+                        const gain = ctx.createGain()
+                        osc.type = 'sine'
+                        osc.frequency.value = freq
+                        osc.connect(gain)
+                        gain.connect(sink || this.master)
+                        const a = 0.01,
+                            d = 0.05,
+                            r = 0.1
+                        gain.gain.setValueAtTime(0.0001, start)
+                        gain.gain.exponentialRampToValueAtTime(1.0, start + a)
+                        gain.gain.exponentialRampToValueAtTime(sustain, start + a + d)
+                        gain.gain.setValueAtTime(sustain, start + dur)
+                        gain.gain.exponentialRampToValueAtTime(0.0001, start + dur + r)
+                        osc.start(start)
+                        osc.stop(start + dur + r + 0.05)
+                    }
+                    playByLetter(letter, octave, dur) {
+                        this.ensure()
+                        const midi = 12 + octave * 12 + SEMI[letter]
+                        this.playNote(midiToFreq(midi), this.now + 0.02, dur || 0.45, 0.6)
+                    }
+                    playNoteSeq(seqNotes) {
+                        this.ensure()
+                        const sg = this.newSeqGain()
+                        const noteDur = 0.5,
+                            gap = 0.65
+                        const t0 = this.now
+                        seqNotes.forEach(({ note }, i) => {
+                            const midi = 12 + note.octave * 12 + SEMI[note.letter]
+                            this.playNote(
+                                midiToFreq(midi),
+                                t0 + 0.05 + i * gap,
+                                noteDur,
+                                0.6,
+                                sg
+                            )
+                        })
+                    }
+                }
+                const synth = new Synth()
+
+                // =====================================================================
+                // SVG DRAWING
+                // =====================================================================
+                const svg = document.getElementById('board')
+
+                function clearSvg() {
+                    while (svg.firstChild) svg.removeChild(svg.firstChild)
+                }
+
+                function el(name, attrs) {
+                    const n = document.createElementNS('http://www.w3.org/2000/svg', name)
+                    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v))
+                    return n
+                }
+
+                function fretCenterX(fret, pos) {
+                    const numFrets = pos.maxFret - pos.minFret + 1
+                    const fretWidth = (TAB_RIGHT - TAB_LEFT) / numFrets
+                    return TAB_LEFT + (fret - pos.minFret + 0.5) * fretWidth
+                }
+
+                function renderTabBoard() {
+                    clearSvg()
+                    svg.setAttribute('viewBox', '0 0 1000 380')
+                    const pos = TAB_POSITIONS[tabPositionIdx]
+
+                    // String labels (G, D, A, E top to bottom)
+                    const strLabels = ['G', 'D', 'A', 'E']
+                    TAB_STR_Y.forEach((y, i) => {
+                        const t = el('text', {
+                            x: TAB_LEFT - 10,
+                            y: y + 8,
+                            'text-anchor': 'end',
+                            'font-size': 20,
+                            'font-weight': 'bold',
+                            'font-family': 'monospace',
+                        })
+                        t.style.fill = 'var(--svg-text)'
+                        t.textContent = strLabels[i]
+                        svg.appendChild(t)
+                    })
+
+                    // Nut or position marker
+                    if (pos.minFret === 0) {
+                        const nut = el('rect', {
+                            x: TAB_LEFT,
+                            y: TAB_STR_Y[0] - 15,
+                            width: 8,
+                            height: TAB_STR_Y[3] - TAB_STR_Y[0] + 30,
+                            rx: 2,
+                        })
+                        nut.style.fill = 'var(--svg-nut)'
+                        svg.appendChild(nut)
+                    } else {
+                        const marker = el('line', {
+                            x1: TAB_LEFT,
+                            y1: TAB_STR_Y[0] - 12,
+                            x2: TAB_LEFT,
+                            y2: TAB_STR_Y[3] + 12,
+                            'stroke-width': 3,
+                        })
+                        marker.style.stroke = 'var(--hint)'
+                        svg.appendChild(marker)
+                        const frT = el('text', {
+                            x: TAB_LEFT + 4,
+                            y: TAB_STR_Y[3] + 32,
+                            'font-size': 14,
+                            'font-style': 'italic',
+                        })
+                        frT.style.fill = 'var(--hint)'
+                        frT.textContent = pos.minFret + 'fr'
+                        svg.appendChild(frT)
+                    }
+
+                    // String lines
+                    TAB_STR_Y.forEach(y => {
+                        const line = el('line', {
+                            x1: TAB_LEFT,
+                            y1: y,
+                            x2: TAB_RIGHT,
+                            y2: y,
+                            'stroke-width': 2.5,
+                        })
+                        line.style.stroke = 'var(--svg-line)'
+                        svg.appendChild(line)
+                    })
+
+                    // Fret wire lines (vertical)
+                    const numFrets = pos.maxFret - pos.minFret + 1
+                    const fretWidth = (TAB_RIGHT - TAB_LEFT) / numFrets
+                    for (let i = 1; i <= numFrets; i++) {
+                        const x = TAB_LEFT + i * fretWidth
+                        const fretLine = el('line', {
+                            x1: x,
+                            y1: TAB_STR_Y[0] - 12,
+                            x2: x,
+                            y2: TAB_STR_Y[3] + 12,
+                            'stroke-width': 1.5,
+                        })
+                        fretLine.style.stroke = 'var(--svg-line)'
+                        svg.appendChild(fretLine)
+                    }
+
+                    // Fret dot markers
+                    const midY12 = (TAB_STR_Y[1] + TAB_STR_Y[2]) / 2
+                    const midY_top = (TAB_STR_Y[0] + TAB_STR_Y[1]) / 2
+                    const midY_bot = (TAB_STR_Y[2] + TAB_STR_Y[3]) / 2
+                    const dotR = 7
+
+                    DOT_FRETS_SINGLE.forEach(fret => {
+                        if (fret < pos.minFret || fret > pos.maxFret) return
+                        const x = fretCenterX(fret, pos)
+                        const dot = el('circle', { cx: x, cy: midY12, r: dotR })
+                        dot.style.fill = 'var(--dot-color)'
+                        svg.appendChild(dot)
+                    })
+
+                    if (DOT_FRET_DOUBLE >= pos.minFret && DOT_FRET_DOUBLE <= pos.maxFret) {
+                        const x = fretCenterX(DOT_FRET_DOUBLE, pos)
+                        const d1 = el('circle', { cx: x, cy: midY_top, r: dotR })
+                        d1.style.fill = 'var(--dot-color)'
+                        svg.appendChild(d1)
+                        const d2 = el('circle', { cx: x, cy: midY_bot, r: dotR })
+                        d2.style.fill = 'var(--dot-color)'
+                        svg.appendChild(d2)
+                    }
+
+                    if (!tabCurrent) return
+                    const c = tabCurrent
+
+                    c.seqNotes.forEach(({ note, placement }, i) => {
+                        const answered = i < c.seqPos
+                        const current = i === c.seqPos
+                        const x = fretCenterX(placement.fret, pos)
+                        const y = TAB_STR_Y[placement.stringNum - 1]
+                        const fStr = String(placement.fret)
+                        const bw = fStr.length === 1 ? 32 : 44
+
+                        const rect = el('rect', {
+                            x: x - bw / 2,
+                            y: y - 14,
+                            width: bw,
+                            height: 28,
+                            'stroke-width': 2.5,
+                            rx: 5,
+                        })
+                        rect.style.fill = 'var(--fret-bg)'
+                        if (answered) {
+                            rect.style.stroke = 'var(--good)'
+                        } else if (current) {
+                            rect.style.stroke = 'var(--svg-text)'
+                        } else {
+                            rect.style.stroke = 'var(--dot-color)'
+                        }
+                        svg.appendChild(rect)
+
+                        const nt = el('text', {
+                            x: x,
+                            y: y + 8,
+                            'text-anchor': 'middle',
+                            'font-size': 20,
+                            'font-weight': 'bold',
+                            'font-family': 'monospace',
+                        })
+                        if (answered) {
+                            nt.style.fill = 'var(--good)'
+                        } else if (current) {
+                            nt.style.fill = 'var(--svg-text)'
+                        } else {
+                            nt.style.fill = 'var(--dot-color)'
+                        }
+                        nt.textContent = fStr
+                        svg.appendChild(nt)
+
+                        if (answered) {
+                            const lt = el('text', {
+                                x: x,
+                                y: y - 20,
+                                'text-anchor': 'middle',
+                                'font-size': 15,
+                                'font-weight': 'bold',
+                            })
+                            lt.style.fill = 'var(--good)'
+                            lt.textContent = note.letter
+                            svg.appendChild(lt)
+                        }
+                    })
+                }
+
+                // =====================================================================
+                // TAB QUIZ LOGIC
+                // =====================================================================
+                function noteToMidi(letter, octave) {
+                    return 12 + octave * 12 + SEMI[letter]
+                }
+
+                function findTabPlacement(letter, octave) {
+                    const midi = noteToMidi(letter, octave)
+                    const pos = TAB_POSITIONS[tabPositionIdx]
+                    let best = null,
+                        bestScore = Infinity
+                    for (const str of BASS_STRINGS) {
+                        const fret = midi - str.openMidi
+                        if (fret < 0 || fret > 24) continue
+                        const score =
+                            fret < pos.minFret
+                                ? pos.minFret - fret
+                                : fret > pos.maxFret
+                                  ? fret - pos.maxFret
+                                  : 0
+                        if (score < bestScore) {
+                            bestScore = score
+                            best = { stringNum: str.stringNum, fret }
+                        }
+                    }
+                    return best
+                }
+
+                function buildTabNotePool() {
+                    const pos = TAB_POSITIONS[tabPositionIdx]
+                    const seen = new Set()
+                    const pool = []
+                    for (const str of BASS_STRINGS) {
+                        for (let fret = pos.minFret; fret <= pos.maxFret; fret++) {
+                            const midi = str.openMidi + fret
+                            const semi = (midi - 12) % 12
+                            if (!SEMI_INV.has(semi)) continue
+                            const letter = SEMI_INV.get(semi)
+                            const octave = Math.floor((midi - 12) / 12)
+                            const dIdx = diatonicIndex(letter, octave)
+                            if (!seen.has(dIdx)) {
+                                seen.add(dIdx)
+                                pool.push(dIdx)
+                            }
+                        }
+                    }
+                    return pool.sort((a, b) => a - b)
+                }
+
+                function newTabNoteQuestion() {
+                    const pool = buildTabNotePool()
+                    if (!pool.length) return
+                    const seqLen = Number(document.getElementById('seqLen').value) || 1
+                    const seqNotes = []
+                    let attempts = 0
+                    while (seqNotes.length < seqLen && attempts < 200) {
+                        attempts++
+                        const idx = pool[randomInt(0, pool.length - 1)]
+                        if (seqNotes.length > 0 && seqNotes[seqNotes.length - 1].idx === idx)
+                            continue
+                        const note = noteFromIndex(idx)
+                        const placement = findTabPlacement(note.letter, note.octave)
+                        if (placement) seqNotes.push({ idx, note, placement })
+                    }
+                    if (!seqNotes.length) return
+                    tabCurrent = {
+                        seqNotes: seqNotes,
+                        seqPos: 0,
+                        answered: [],
+                        tries: 0,
+                        totalTries: 0,
+                    }
+                    waitingForNext = false
+                    updateTypedDisplay()
+                    clearFeedback()
+                    resetTries()
+                    renderTabBoard()
+                    synth.playNoteSeq(seqNotes)
+                }
+
+                function updateTypedDisplay() {
+                    const c = tabCurrent
+                    if (!c) return
+                    const parts = c.seqNotes.map((_, i) => c.answered[i] || '_')
+                    document.getElementById('typed').textContent =
+                        c.seqNotes.length === 1 ? parts[0] : parts.join(' ')
+                }
+
+                function closestOctaveFor(letter, idx) {
+                    let bestOct = 2,
+                        bestDist = Infinity
+                    for (let oct = 0; oct <= 5; oct++) {
+                        const d = Math.abs(diatonicIndex(letter, oct) - idx)
+                        if (d < bestDist) {
+                            bestDist = d
+                            bestOct = oct
+                        }
+                    }
+                    return bestOct
+                }
+
+                function handleTabNoteGuess(letter) {
+                    if (waitingForNext || !tabCurrent) return
+                    const c = tabCurrent
+                    const { idx, note } = c.seqNotes[c.seqPos]
+                    synth.playByLetter(letter, closestOctaveFor(letter, idx), 0.4)
+                    c.tries++
+                    c.totalTries++
+                    document.getElementById('tries').textContent = String(c.tries)
+                    if (letter === note.letter) {
+                        c.answered.push(letter)
+                        updateTypedDisplay()
+                        if (c.seqPos + 1 < c.seqNotes.length) {
+                            c.seqPos++
+                            c.tries = 0
+                            document.getElementById('tries').textContent = '0'
+                            setFeedback('✓', 'good')
+                            renderTabBoard()
+                            setTimeout(() => {
+                                if (!waitingForNext) clearFeedback()
+                            }, 500)
+                        } else {
+                            setFeedback('✓', 'good')
+                            recordResult(
+                                c.seqNotes.map(({ note: n }) => noteName(n)).join(' '),
+                                c.totalTries,
+                                c.totalTries === c.seqNotes.length
+                            )
+                            c.seqPos = c.seqNotes.length
+                            waitingForNext = true
+                            renderTabBoard()
+                            setTimeout(newTabNoteQuestion, 1500)
+                        }
+                    } else {
+                        setFeedback('✗', 'bad')
+                    }
+                }
+
+                // =====================================================================
+                // STATS & HISTORY (with localStorage persistence)
+                // =====================================================================
+                function saveToStorage() {
+                    try {
+                        localStorage.setItem(
+                            STORAGE_KEY,
+                            JSON.stringify({
+                                done: done,
+                                firstTryCount: firstTryCount,
+                                historyLog: historyLog,
+                            })
+                        )
+                    } catch (e) {}
+                }
+
+                function loadFromStorage() {
+                    try {
+                        const raw = localStorage.getItem(STORAGE_KEY)
+                        if (!raw) return
+                        const data = JSON.parse(raw)
+                        done = data.done || 0
+                        firstTryCount = data.firstTryCount || 0
+                        historyLog = data.historyLog || []
+                    } catch (e) {
+                        done = 0
+                        firstTryCount = 0
+                        historyLog = []
+                    }
+                }
+
+                function rebuildHistoryTable() {
+                    const tbody = document.getElementById('histBody')
+                    tbody.innerHTML = ''
+                    for (let i = historyLog.length - 1; i >= 0; i--) {
+                        const entry = historyLog[i]
+                        const tr = document.createElement('tr')
+                        ;[String(i + 1), entry.questionText, String(entry.tries)].forEach(
+                            t => {
+                                const td = document.createElement('td')
+                                td.textContent = t
+                                tr.appendChild(td)
+                            }
+                        )
+                        tbody.appendChild(tr)
+                    }
+                }
+
+                function recordResult(questionText, tries, wasFirstTry) {
+                    done++
+                    if (wasFirstTry) firstTryCount++
+                    historyLog.push({ questionText: questionText, tries: tries })
+                    updateStats()
+                    saveToStorage()
+                    const tbody = document.getElementById('histBody')
+                    const tr = document.createElement('tr')
+                    ;[String(historyLog.length), questionText, String(tries)].forEach(t => {
+                        const td = document.createElement('td')
+                        td.textContent = t
+                        tr.appendChild(td)
+                    })
+                    tbody.prepend(tr)
+                }
+
+                function updateStats() {
+                    document.getElementById('done').textContent = String(done)
+                    document.getElementById('firstTryEl').textContent = String(firstTryCount)
+                    const rate = done === 0 ? 0 : Math.round((firstTryCount / done) * 100)
+                    document.getElementById('rate').textContent = rate + '%'
+                }
+
+                // =====================================================================
+                // UI HELPERS
+                // =====================================================================
+                function setFeedback(text, cls) {
+                    const fb = document.getElementById('feedback')
+                    fb.textContent = text
+                    fb.className = 'big ' + (cls || '')
+                }
+                function clearFeedback() {
+                    setFeedback('')
+                }
+                function resetTries() {
+                    document.getElementById('tries').textContent = '0'
+                }
+
+                // =====================================================================
+                // EVENT WIRING
+                // =====================================================================
+                document.querySelectorAll('.note-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        handleTabNoteGuess(btn.dataset.note)
+                    })
+                })
+
+                document.getElementById('resetBtn').addEventListener('click', () => {
+                    done = 0
+                    firstTryCount = 0
+                    historyLog = []
+                    document.getElementById('histBody').innerHTML = ''
+                    updateStats()
+                    try {
+                        localStorage.removeItem(STORAGE_KEY)
+                    } catch (e) {}
+                    newTabNoteQuestion()
+                })
+
+                document.getElementById('seqLen').addEventListener('change', () => {
+                    newTabNoteQuestion()
+                })
+
+                document.querySelectorAll('.tabpos-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        tabPositionIdx = Number(btn.dataset.pos)
+                        document
+                            .querySelectorAll('.tabpos-btn')
+                            .forEach(b =>
+                                b.classList.toggle(
+                                    'selected-btn',
+                                    Number(b.dataset.pos) === tabPositionIdx
+                                )
+                            )
+                        newTabNoteQuestion()
+                    })
+                })
+
+                window.addEventListener('keydown', e => {
+                    if (e.target.tagName === 'SELECT') return
+                    const kUp = e.key.toUpperCase()
+                    if (kUp.length === 1 && kUp >= 'A' && kUp <= 'G') {
+                        e.preventDefault()
+                        handleTabNoteGuess(kUp)
+                    } else if (e.code === 'Space' && !e.metaKey && !e.ctrlKey) {
+                        e.preventDefault()
+                        if (tabCurrent) synth.playNoteSeq(tabCurrent.seqNotes)
+                    }
+                })
+
+                // =====================================================================
+                // INIT
+                // =====================================================================
+                loadFromStorage()
+                updateStats()
+                rebuildHistoryTable()
+                newTabNoteQuestion()
+            })()
+        </script>
+
+        <div style="margin-top: 14px" class="hint">
+            <strong>Keyboard shortcuts:</strong>
+            <b>A-G</b> answer &middot; <b>Space</b> replay audio
+        </div>
+    </body>
+</html>
